@@ -1,10 +1,75 @@
-from flask import Flask, render_template, request
-# import numpy as np
+from email.headerregistry import UniqueSingleAddressHeader
+from flask import Flask, render_template, request, redirect,session, url_for
+from flask_sqlalchemy import SQLAlchemy
+import sqlite3
 import joblib
 import pandas as pd
+# import numpy as np
 
 
 app = Flask(__name__)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+db = SQLAlchemy(app)
+
+class User(db.Model):
+    # atribut class
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), Unique=True)
+    password = db.COlumn(db.String(100))
+    
+    # fungsi init memasukkan username dan password
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+@app.route('/', methods=['GET'])
+def index():
+    if session.get('logged_in'):
+        return render_template('home.html')
+    else:
+        return render_template('index.html', message="Hello!")
+
+
+@app.route('/register/', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        try:
+            db.session.add(User(username=request.form['username'], password=request.form['password']))
+            db.session.commit()
+            return redirect(url_for('login'))
+        except:
+            return render_template('index.html', message="User Already Exists")
+    else:
+        return render_template('register.html')
+
+
+@app.route('/login/', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+    else:
+        u = request.form['username']
+        p = request.form['password']
+        data = User.query.filter_by(username=u, password=p).first()
+        if data is not None:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        return render_template('index.html', message="Incorrect Details")
+
+
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    session['logged_in'] = False
+    return redirect(url_for('index'))
+
+if(__name__ == '__main__'):
+    app.secret_key = "ThisIsNotASecret:p"
+    db.create_all()
+    app.run()
+
+#                    End Of Login Form SQL ~ Flask
+# ---------------------------------------------------------------------- # 
 
 @app.route('/', methods=['GET','POST'])
 def main():
